@@ -10,7 +10,6 @@
 > **Te recomendamos volver a consultar próximamente.**
 
 ## Descripción
-⚠️Update in progress⚠️
 Librería .NET para consultar y descargar facturas (CFDI) emitidas y recibidas a través del servicio web del SAT, incluyendo la obtención de metadata. Este servicio es parte del sistema "Consulta y recuperación de comprobantes" del SAT ([documentación oficial](https://www.sat.gob.mx/consultas/42968/consulta-y-recuperacion-de-comprobantes-(nuevo))).
 
 ### Casos de Uso
