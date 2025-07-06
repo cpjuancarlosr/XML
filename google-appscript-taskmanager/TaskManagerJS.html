@@ -1,0 +1,662 @@
+<script>
+    // Global variables
+    let allTasks = [];
+    let filteredTasks = [];
+    let currentEditingTask = null;
+
+    // DOM elements
+    const elements = {
+        loadingIndicator: null,
+        emptyState: null,
+        tasksTableBody: null,
+        taskModal: null,
+        taskDetailsModal: null,
+        taskForm: null,
+        refreshBtn: null,
+        addTaskBtn: null,
+        closeModal: null,
+        closeDetailsModal: null,
+        cancelBtn: null,
+        saveTaskBtn: null,
+        createFirstTaskBtn: null,
+        statusFilter: null,
+        priorityFilter: null,
+        projectFilter: null,
+        searchFilter: null,
+        totalTasks: null,
+        completedTasks: null,
+        inProgressTasks: null,
+        overdueTasks: null
+    };
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeElements();
+        setupEventListeners();
+        loadTasks();
+    });
+
+    /**
+     * Initialize DOM element references
+     */
+    function initializeElements() {
+        elements.loadingIndicator = document.getElementById('loadingIndicator');
+        elements.emptyState = document.getElementById('emptyState');
+        elements.tasksTableBody = document.getElementById('tasksTableBody');
+        elements.taskModal = document.getElementById('taskModal');
+        elements.taskDetailsModal = document.getElementById('taskDetailsModal');
+        elements.taskForm = document.getElementById('taskForm');
+        elements.refreshBtn = document.getElementById('refreshBtn');
+        elements.addTaskBtn = document.getElementById('addTaskBtn');
+        elements.closeModal = document.getElementById('closeModal');
+        elements.closeDetailsModal = document.getElementById('closeDetailsModal');
+        elements.cancelBtn = document.getElementById('cancelBtn');
+        elements.saveTaskBtn = document.getElementById('saveTaskBtn');
+        elements.createFirstTaskBtn = document.getElementById('createFirstTaskBtn');
+        elements.statusFilter = document.getElementById('statusFilter');
+        elements.priorityFilter = document.getElementById('priorityFilter');
+        elements.projectFilter = document.getElementById('projectFilter');
+        elements.searchFilter = document.getElementById('searchFilter');
+        elements.totalTasks = document.getElementById('totalTasks');
+        elements.completedTasks = document.getElementById('completedTasks');
+        elements.inProgressTasks = document.getElementById('inProgressTasks');
+        elements.overdueTasks = document.getElementById('overdueTasks');
+    }
+
+    /**
+     * Setup event listeners
+     */
+    function setupEventListeners() {
+        // Button events
+        elements.refreshBtn.addEventListener('click', loadTasks);
+        elements.addTaskBtn.addEventListener('click', () => openTaskModal());
+        elements.createFirstTaskBtn.addEventListener('click', () => openTaskModal());
+        elements.closeModal.addEventListener('click', closeTaskModal);
+        elements.closeDetailsModal.addEventListener('click', closeTaskDetailsModal);
+        elements.cancelBtn.addEventListener('click', closeTaskModal);
+        elements.saveTaskBtn.addEventListener('click', saveTask);
+
+        // Filter events
+        elements.statusFilter.addEventListener('change', applyFilters);
+        elements.priorityFilter.addEventListener('change', applyFilters);
+        elements.projectFilter.addEventListener('change', applyFilters);
+        elements.searchFilter.addEventListener('input', debounce(applyFilters, 300));
+
+        // Form submission
+        elements.taskForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveTask();
+        });
+
+        // Modal close on background click
+        window.addEventListener('click', function(e) {
+            if (e.target === elements.taskModal) {
+                closeTaskModal();
+            }
+            if (e.target === elements.taskDetailsModal) {
+                closeTaskDetailsModal();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeTaskModal();
+                closeTaskDetailsModal();
+            }
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                openTaskModal();
+            }
+        });
+    }
+
+    /**
+     * Load tasks from the server
+     */
+    function loadTasks() {
+        showLoading(true);
+        
+        google.script.run
+            .withSuccessHandler(onTasksLoaded)
+            .withFailureHandler(onTasksLoadError)
+            .getTasks();
+    }
+
+    /**
+     * Handle successful task loading
+     */
+    function onTasksLoaded(tasks) {
+        allTasks = tasks || [];
+        filteredTasks = [...allTasks];
+        
+        updateSummaryCards();
+        updateProjectFilter();
+        renderTasks();
+        showLoading(false);
+    }
+
+    /**
+     * Handle task loading error
+     */
+    function onTasksLoadError(error) {
+        console.error('Error loading tasks:', error);
+        showError('Failed to load tasks. Please try again.');
+        showLoading(false);
+    }
+
+    /**
+     * Show or hide loading indicator
+     */
+    function showLoading(show) {
+        elements.loadingIndicator.style.display = show ? 'block' : 'none';
+        elements.emptyState.style.display = 'none';
+        
+        if (show) {
+            elements.tasksTableBody.innerHTML = '';
+        }
+    }
+
+    /**
+     * Show error message
+     */
+    function showError(message) {
+        alert('Error: ' + message);
+    }
+
+    /**
+     * Show success message
+     */
+    function showSuccess(message) {
+        // Create a temporary success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'alert alert-success';
+        successDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        successDiv.textContent = message;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => {
+            successDiv.remove();
+        }, 3000);
+    }
+
+    /**
+     * Update summary cards
+     */
+    function updateSummaryCards() {
+        const now = new Date();
+        
+        const stats = {
+            total: allTasks.length,
+            completed: allTasks.filter(task => task.status === 'Completed').length,
+            inProgress: allTasks.filter(task => task.status === 'In Progress').length,
+            overdue: allTasks.filter(task => {
+                return task.dueDate && 
+                       new Date(task.dueDate) < now && 
+                       task.status !== 'Completed';
+            }).length
+        };
+
+        elements.totalTasks.textContent = stats.total;
+        elements.completedTasks.textContent = stats.completed;
+        elements.inProgressTasks.textContent = stats.inProgress;
+        elements.overdueTasks.textContent = stats.overdue;
+    }
+
+    /**
+     * Update project filter options
+     */
+    function updateProjectFilter() {
+        const projects = [...new Set(allTasks
+            .map(task => task.project)
+            .filter(project => project && project.trim() !== ''))];
+        
+        // Clear existing options (except "All Projects")
+        while (elements.projectFilter.children.length > 1) {
+            elements.projectFilter.removeChild(elements.projectFilter.lastChild);
+        }
+        
+        // Add project options
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project;
+            option.textContent = project;
+            elements.projectFilter.appendChild(option);
+        });
+    }
+
+    /**
+     * Apply filters to tasks
+     */
+    function applyFilters() {
+        const statusFilter = elements.statusFilter.value;
+        const priorityFilter = elements.priorityFilter.value;
+        const projectFilter = elements.projectFilter.value;
+        const searchQuery = elements.searchFilter.value.toLowerCase().trim();
+
+        filteredTasks = allTasks.filter(task => {
+            // Status filter
+            if (statusFilter && task.status !== statusFilter) {
+                return false;
+            }
+            
+            // Priority filter
+            if (priorityFilter && task.priority !== priorityFilter) {
+                return false;
+            }
+            
+            // Project filter
+            if (projectFilter && task.project !== projectFilter) {
+                return false;
+            }
+            
+            // Search filter
+            if (searchQuery) {
+                const searchableText = [
+                    task.title,
+                    task.description,
+                    task.project,
+                    task.assignee,
+                    task.taskId
+                ].join(' ').toLowerCase();
+                
+                if (!searchableText.includes(searchQuery)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+
+        renderTasks();
+    }
+
+    /**
+     * Render tasks in the table
+     */
+    function renderTasks() {
+        if (filteredTasks.length === 0) {
+            elements.tasksTableBody.innerHTML = '';
+            elements.emptyState.style.display = 'block';
+            return;
+        }
+
+        elements.emptyState.style.display = 'none';
+        
+        const html = filteredTasks.map(task => createTaskRow(task)).join('');
+        elements.tasksTableBody.innerHTML = html;
+        
+        // Add event listeners for action buttons
+        addTaskRowEventListeners();
+    }
+
+    /**
+     * Create HTML for a task row
+     */
+    function createTaskRow(task) {
+        const dueDate = task.dueDate ? formatDate(task.dueDate) : '';
+        const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'Completed';
+        const isCompleted = task.status === 'Completed';
+        
+        let rowClasses = [];
+        if (task.priority === 'Critical') rowClasses.push('task-row-critical');
+        if (task.priority === 'High') rowClasses.push('task-row-high');
+        if (isCompleted) rowClasses.push('task-row-completed');
+        if (isOverdue) rowClasses.push('task-row-overdue');
+
+        return `
+            <tr class="${rowClasses.join(' ')}" data-task-id="${task.taskId}">
+                <td>${task.taskId}</td>
+                <td>
+                    <div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(task.title)}</div>
+                                         ${task.description ? `<div style="font-size: 12px; color: #6c757d;">${escapeHtml(task.description.substring(0, 50))}${task.description.length > 50 ? '...' : ''}</div>` : ''}
+                </td>
+                <td>${escapeHtml(task.project || '')}</td>
+                <td>${escapeHtml(task.assignee || '')}</td>
+                <td>
+                    <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>
+                </td>
+                <td>
+                    <span class="status-badge status-${task.status.toLowerCase().replace(' ', '-')}">${task.status}</span>
+                </td>
+                <td style="color: ${isOverdue ? '#dc3545' : '#495057'};">
+                    ${dueDate}
+                    ${isOverdue ? '<span style="margin-left: 8px;">⚠️</span>' : ''}
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-secondary view-task" data-task-id="${task.taskId}">👁️ View</button>
+                        <button class="btn btn-sm btn-warning edit-task" data-task-id="${task.taskId}">✏️ Edit</button>
+                        ${task.status !== 'Completed' ? 
+                            `<button class="btn btn-sm btn-success complete-task" data-task-id="${task.taskId}">✅ Complete</button>` :
+                            `<button class="btn btn-sm btn-secondary reopen-task" data-task-id="${task.taskId}">🔄 Reopen</button>`
+                        }
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    /**
+     * Add event listeners to task row buttons
+     */
+    function addTaskRowEventListeners() {
+        // View task buttons
+        document.querySelectorAll('.view-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const taskId = e.target.dataset.taskId;
+                viewTaskDetails(taskId);
+            });
+        });
+
+        // Edit task buttons
+        document.querySelectorAll('.edit-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const taskId = e.target.dataset.taskId;
+                editTask(taskId);
+            });
+        });
+
+        // Complete task buttons
+        document.querySelectorAll('.complete-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const taskId = e.target.dataset.taskId;
+                updateTaskStatus(taskId, 'Completed');
+            });
+        });
+
+        // Reopen task buttons
+        document.querySelectorAll('.reopen-task').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const taskId = e.target.dataset.taskId;
+                updateTaskStatus(taskId, 'In Progress');
+            });
+        });
+    }
+
+    /**
+     * Open task modal for creating or editing
+     */
+    function openTaskModal(task = null) {
+        currentEditingTask = task;
+        
+        if (task) {
+            // Edit mode
+            document.getElementById('modalTitle').textContent = 'Edit Task';
+            populateTaskForm(task);
+        } else {
+            // Create mode
+            document.getElementById('modalTitle').textContent = 'Add New Task';
+            elements.taskForm.reset();
+            
+            // Set default due date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('taskDueDate').value = formatDateForInput(tomorrow);
+        }
+        
+        elements.taskModal.style.display = 'block';
+        document.getElementById('taskTitle').focus();
+    }
+
+    /**
+     * Close task modal
+     */
+    function closeTaskModal() {
+        elements.taskModal.style.display = 'none';
+        currentEditingTask = null;
+        elements.taskForm.reset();
+    }
+
+    /**
+     * Close task details modal
+     */
+    function closeTaskDetailsModal() {
+        elements.taskDetailsModal.style.display = 'none';
+    }
+
+    /**
+     * Populate task form with task data
+     */
+    function populateTaskForm(task) {
+        document.getElementById('taskTitle').value = task.title || '';
+        document.getElementById('taskDescription').value = task.description || '';
+        document.getElementById('taskProject').value = task.project || '';
+        document.getElementById('taskAssignee').value = task.assignee || '';
+        document.getElementById('taskPriority').value = task.priority || 'Medium';
+        document.getElementById('taskStatus').value = task.status || 'Not Started';
+        document.getElementById('taskDueDate').value = task.dueDate ? formatDateForInput(task.dueDate) : '';
+        document.getElementById('taskEstimatedHours').value = task.estimatedHours || '';
+    }
+
+    /**
+     * Save task (create or update)
+     */
+    function saveTask() {
+        const formData = new FormData(elements.taskForm);
+        const taskData = Object.fromEntries(formData.entries());
+        
+        // Validate required fields
+        if (!taskData.title.trim()) {
+            alert('Please enter a task title.');
+            return;
+        }
+        
+        // Show loading state
+        elements.saveTaskBtn.disabled = true;
+        elements.saveTaskBtn.textContent = 'Saving...';
+        
+        if (currentEditingTask) {
+            // Update existing task
+            updateTask(currentEditingTask.taskId, taskData);
+        } else {
+            // Create new task
+            google.script.run
+                .withSuccessHandler(onTaskSaved)
+                .withFailureHandler(onTaskSaveError)
+                .createTaskFromWeb(taskData);
+        }
+    }
+
+    /**
+     * Handle successful task save
+     */
+    function onTaskSaved(taskId) {
+        closeTaskModal();
+        showSuccess('Task saved successfully!');
+        loadTasks(); // Reload to get updated data
+        
+        // Reset button state
+        elements.saveTaskBtn.disabled = false;
+        elements.saveTaskBtn.textContent = 'Save Task';
+    }
+
+    /**
+     * Handle task save error
+     */
+    function onTaskSaveError(error) {
+        console.error('Error saving task:', error);
+        showError('Failed to save task. Please try again.');
+        
+        // Reset button state
+        elements.saveTaskBtn.disabled = false;
+        elements.saveTaskBtn.textContent = 'Save Task';
+    }
+
+    /**
+     * Update task status
+     */
+    function updateTaskStatus(taskId, newStatus) {
+        google.script.run
+            .withSuccessHandler(() => {
+                showSuccess(`Task status updated to ${newStatus}!`);
+                loadTasks();
+            })
+            .withFailureHandler((error) => {
+                console.error('Error updating task status:', error);
+                showError('Failed to update task status.');
+            })
+            .updateTaskStatus(taskId, newStatus);
+    }
+
+    /**
+     * Edit task
+     */
+    function editTask(taskId) {
+        const task = allTasks.find(t => t.taskId === taskId);
+        if (task) {
+            openTaskModal(task);
+        }
+    }
+
+    /**
+     * View task details
+     */
+    function viewTaskDetails(taskId) {
+        const task = allTasks.find(t => t.taskId === taskId);
+        if (!task) return;
+        
+        document.getElementById('detailsModalTitle').textContent = `Task Details - ${task.title}`;
+        
+        const detailsHtml = `
+            <div class="task-detail-item">
+                <span class="task-detail-label">Task ID</span>
+                <span class="task-detail-value">${task.taskId}</span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Title</span>
+                <span class="task-detail-value">${escapeHtml(task.title)}</span>
+            </div>
+            ${task.description ? `
+            <div class="task-detail-item">
+                <span class="task-detail-label">Description</span>
+                <span class="task-detail-value">${escapeHtml(task.description)}</span>
+            </div>
+            ` : ''}
+            <div class="task-detail-item">
+                <span class="task-detail-label">Project</span>
+                <span class="task-detail-value">${escapeHtml(task.project || 'N/A')}</span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Assignee</span>
+                <span class="task-detail-value">${escapeHtml(task.assignee || 'Unassigned')}</span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Priority</span>
+                <span class="task-detail-value">
+                    <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>
+                </span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Status</span>
+                <span class="task-detail-value">
+                    <span class="status-badge status-${task.status.toLowerCase().replace(' ', '-')}">${task.status}</span>
+                </span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Due Date</span>
+                <span class="task-detail-value">${task.dueDate ? formatDate(task.dueDate) : 'Not set'}</span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Created Date</span>
+                <span class="task-detail-value">${formatDate(task.createdDate)}</span>
+            </div>
+            ${task.completedDate ? `
+            <div class="task-detail-item">
+                <span class="task-detail-label">Completed Date</span>
+                <span class="task-detail-value">${formatDate(task.completedDate)}</span>
+            </div>
+            ` : ''}
+            <div class="task-detail-item">
+                <span class="task-detail-label">Estimated Hours</span>
+                <span class="task-detail-value">${task.estimatedHours || 0} hours</span>
+            </div>
+            <div class="task-detail-item">
+                <span class="task-detail-label">Actual Hours</span>
+                <span class="task-detail-value">${task.actualHours || 0} hours</span>
+            </div>
+        `;
+        
+        document.getElementById('taskDetailsContent').innerHTML = detailsHtml;
+        elements.taskDetailsModal.style.display = 'block';
+    }
+
+    /**
+     * Utility function to format date
+     */
+    function formatDate(dateValue) {
+        if (!dateValue) return '';
+        
+        const date = new Date(dateValue);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    /**
+     * Format date for input field (YYYY-MM-DD)
+     */
+    function formatDateForInput(dateValue) {
+        if (!dateValue) return '';
+        
+        const date = new Date(dateValue);
+        return date.toISOString().split('T')[0];
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    /**
+     * Debounce function for search input
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    /**
+     * Update existing task (placeholder for future implementation)
+     */
+    function updateTask(taskId, taskData) {
+        // For now, just close the modal and show a message
+        // In a full implementation, you would call a server function here
+        closeTaskModal();
+        showError('Task editing is not yet implemented. Please edit directly in the Google Sheet.');
+        
+        // Reset button state
+        elements.saveTaskBtn.disabled = false;
+        elements.saveTaskBtn.textContent = 'Save Task';
+    }
+</script>

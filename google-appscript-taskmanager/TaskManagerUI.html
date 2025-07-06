@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    
+    <!-- Include CSS -->
+    <?!= include('TaskManagerCSS'); ?>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">📋 Task Manager</h1>
+            <div class="header-actions">
+                <button id="refreshBtn" class="btn btn-secondary">🔄 Refresh</button>
+                <button id="addTaskBtn" class="btn btn-primary">➕ Add Task</button>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card">
+                <div class="card-header">📊 Total Tasks</div>
+                <div class="card-value" id="totalTasks">0</div>
+            </div>
+            <div class="card">
+                <div class="card-header">✅ Completed</div>
+                <div class="card-value" id="completedTasks">0</div>
+            </div>
+            <div class="card">
+                <div class="card-header">🚀 In Progress</div>
+                <div class="card-value" id="inProgressTasks">0</div>
+            </div>
+            <div class="card">
+                <div class="card-header">⚠️ Overdue</div>
+                <div class="card-value" id="overdueTasks">0</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <div class="filter-group">
+                <label for="statusFilter">Status:</label>
+                <select id="statusFilter" class="filter-select">
+                    <option value="">All Statuses</option>
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="priorityFilter">Priority:</label>
+                <select id="priorityFilter" class="filter-select">
+                    <option value="">All Priorities</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="projectFilter">Project:</label>
+                <select id="projectFilter" class="filter-select">
+                    <option value="">All Projects</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <input type="text" id="searchFilter" placeholder="Search tasks..." class="filter-input">
+            </div>
+        </div>
+
+        <!-- Tasks Table -->
+        <div class="table-container">
+            <table class="tasks-table">
+                <thead>
+                    <tr>
+                        <th>Task ID</th>
+                        <th>Title</th>
+                        <th>Project</th>
+                        <th>Assignee</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tasksTableBody">
+                    <!-- Tasks will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="loading">
+            <div class="spinner"></div>
+            <p>Loading tasks...</p>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📋</div>
+            <h3>No tasks found</h3>
+            <p>Get started by creating your first task!</p>
+            <button id="createFirstTaskBtn" class="btn btn-primary">Create First Task</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Task</h2>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label for="taskTitle">Title *</label>
+                        <input type="text" id="taskTitle" name="title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskDescription">Description</label>
+                        <textarea id="taskDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskProject">Project</label>
+                            <input type="text" id="taskProject" name="project">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="taskAssignee">Assignee</label>
+                            <input type="text" id="taskAssignee" name="assignee">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskPriority">Priority</label>
+                            <select id="taskPriority" name="priority">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="taskStatus">Status</label>
+                            <select id="taskStatus" name="status">
+                                <option value="Not Started" selected>Not Started</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="On Hold">On Hold</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskDueDate">Due Date</label>
+                            <input type="date" id="taskDueDate" name="dueDate">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="taskEstimatedHours">Estimated Hours</label>
+                            <input type="number" id="taskEstimatedHours" name="estimatedHours" min="0" step="0.5">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="saveTaskBtn" class="btn btn-primary">Save Task</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div id="taskDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detailsModalTitle">Task Details</h2>
+                <span class="close" id="closeDetailsModal">&times;</span>
+            </div>
+            <div class="modal-body" id="taskDetailsContent">
+                <!-- Task details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Include JavaScript -->
+    <?!= include('TaskManagerJS'); ?>
+</body>
+</html>
