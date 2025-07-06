@@ -1,12 +1,12 @@
 ﻿namespace Fiscalapi.XmlDownloader.Exceptions
 {
-    public class InvalidRawResponseExceptionException : Exception
+    public class InvalidRawResponseException : Exception
     {
-        public InvalidRawResponseExceptionException(Exception exception, string message)
+        public InvalidRawResponseException(Exception exception, string message) : base(message, exception)
         {
 
         }
-        public InvalidRawResponseExceptionException(string message)
+        public InvalidRawResponseException(string message) : base(message)
         {
 
         }

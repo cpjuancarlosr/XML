@@ -210,7 +210,7 @@ namespace Fiscalapi.XmlDownloader.Services
             var autenticaResult = xml?.DocumentElement?.GetElementsByTagName("AutenticaResult")[0]?.InnerText;
 
 
-            if (created is null | expires is null | autenticaResult is null)
+            if (created is null || expires is null || autenticaResult is null)
             {
                 var faultcode = xml?.DocumentElement?.GetElementsByTagName("faultcode")[0]?.InnerText;
                 var faultstring = xml?.DocumentElement?.GetElementsByTagName("faultstring")[0]?.InnerText;
@@ -360,23 +360,19 @@ namespace Fiscalapi.XmlDownloader.Services
 
                 if (!File.Exists(filePath))
                 {
-                    var FsCreate = new FileStream(filePath, FileMode.Create);
-                    FsCreate.Close();
-                    FsCreate.Dispose();
+                    using var fsCreate = new FileStream(filePath, FileMode.Create);
                 }
 
-                var FsWrite = new FileStream(filePath, FileMode.Append, FileAccess.Write);
-                var SwWrite = new StreamWriter(FsWrite);
+                using var fsWrite = new FileStream(filePath, FileMode.Append, FileAccess.Write);
+                using var swWrite = new StreamWriter(fsWrite);
 
                 var strContent = ex.ToString();
 
-                SwWrite.WriteLine("{0}{1}[{2:HH:mm:ss}]{3}", "--------------------------------", strTitle, DateTime.Now,
+                swWrite.WriteLine("{0}{1}[{2:HH:mm:ss}]{3}", "--------------------------------", strTitle, DateTime.Now,
                     "--------------------------------");
-                SwWrite.Write(strContent);
-                SwWrite.WriteLine(Environment.NewLine);
-                SwWrite.WriteLine(" ");
-                SwWrite.Flush();
-                SwWrite.Close();
+                swWrite.Write(strContent);
+                swWrite.WriteLine(Environment.NewLine);
+                swWrite.WriteLine(" ");
             }
             catch
             {
