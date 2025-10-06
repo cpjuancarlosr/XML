@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Task Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <style>
+      body { padding: 20px; }
+      .actions i { cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h5>Task Manager</h5>
+
+    <div class="row">
+      <form id="addForm" class="col s12">
+        <div class="input-field col s10">
+          <input id="taskInput" type="text" required>
+          <label for="taskInput">New Task</label>
+        </div>
+        <div class="input-field col s2">
+          <button class="btn waves-effect waves-light" type="submit">
+            Add
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <table class="highlight">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Completed</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tasksBody"></tbody>
+    </table>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
